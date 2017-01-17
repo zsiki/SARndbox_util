@@ -12,79 +12,92 @@
     Input file is a SARndbox binary grid file.
     Output file name is optional, default is the name of the input file.
     default output format is GTiff (if no output file given).
-    
+
     Supported output data formats:
         Name                              Extension
         GTiff (GeoTiff single band)       tif
         USGSDEM (USGS DEM)                dem (integer values only)
-        GRASSASCIIGrid (GRASS ASCII GRID) arx
         AAIGrid (ESRI ASCII GRID)         asc
 
     Notes:
     GDAL driver cannot direcly create USGSDEM file, only create copy available
     so a GTiff is created first, than a copy created
-    DGAL USGSDEM driver supports int16 values only, so values are converted to int
-    SRS for GTiff must be set for copycreate, we use UTM (false)  
+    GDAL USGSDEM driver supports int16 values only, so values are converted to int
+    SRS for GTiff must be set for copycreate, we use UTM (false)
 """
 
 import sys
 import os
+import struct
+import argparse
 import osgeo.gdal
 import osgeo.osr
 from gdalconst import GDT_Int16, GDT_Float32
-import struct
 import numpy as np
 
 # GDAL extensions to driver name
 gd_driver = {".tif": "GTiff",
              ".dem": "USGSDEM",
-             ".arc": "AAIGrid",
-             ".arx": "GRASSASCIIGrid"}
+             ".asc": "AAIGrid"}
+# Output data type
+gd_of = {".tif": GDT_Float32,
+         ".dem": GDT_Int16,
+         ".asc": GDT_Float32}
+# check create/copycreate
+cc = []
+for i in gd_driver:
+    form = gd_driver[i]
+    driver = osgeo.gdal.GetDriverByName(form)
+    metadata = driver.GetMetadata()
+    if metadata.has_key(osgeo.gdal.DCAP_CREATE) and \
+        metadata[osgeo.gdal.DCAP_CREATE] == 'YES':
+        continue
+    if metadata.has_key(osgeo.gdal.DCAP_CREATECOPY) and \
+        metadata[osgeo.gdal.DCAP_CREATECOPY] == 'YES':
+        cc.append(i)
 # check command line parameters
-if len(sys.argv) <= 1:
-    print("Usage: grid2dem.py input.grid [output.dem]")
-    #sys.exit(1)
-    ifilename = "../SARndbox-2.3/bin/test.grid"
-else:
-    ifilename = sys.argv[1]
-if os.path.splitext(ifilename)[1] != ".grid":
+parser = argparse.ArgumentParser()
+parser.add_argument("ifilename", type=str, help="input grid file")
+parser.add_argument("ofilename", nargs="?", type=str, \
+    help="output DEM file, optional", default="")
+args = parser.parse_args()
+
+if os.path.splitext(args.ifilename)[1] != ".grid":
     print("input file must be a .grid file")
     sys.exit(2)
 # generate output file name if not given on the command line
-if len(sys.argv) > 2:
-    ofilename = sys.argv[2]
-else:
-    ofilename = os.path.splitext(ifilename)[0] + ".dem"
+if len(args.ofilename) == 0:
+    args.ofilename = os.path.splitext(args.ifilename)[0] + ".tif"
 # check output file type (extension)
-oext = os.path.splitext(ofilename)[1]
-if not oext in gd_driver:
+oext = os.path.splitext(args.ofilename)[1]
+if oext not in gd_driver:
     print("Unsupported output format")
     sys.exit(2)
-if oext == ".dem":
+if oext in cc:
     tmpext = ".tif"
-    tmpfilename = os.path.splitext(ifilename)[0] + tmpext
+    tmpfilename = os.path.splitext(args.ifilename)[0] + tmpext
 else:
     tmpext = oext
-    tmpfilename = ofilename
+    tmpfilename = args.ofilename
 # check if input file available
-if not os.path.isfile(ifilename):
+if not os.path.isfile(args.ifilename):
     print("input file not found")
     sys.exit(3)
-ifile = open(ifilename, "rb")   # open binary input file
+ifile = open(args.ifilename, "rb")   # open binary input file
 idataset = ifile.read()         # read all data
 (cols, rows) = struct.unpack("2i", idataset[:8])
 (xul, ylr, xlr, yul) = struct.unpack("4f", idataset[8:24])
 psize = (xlr - xul) / cols  # pixel size
-if oext == ".dem":
+if gd_of[oext] == GDT_Int16:
     # truncate data to int for gdal USGSDEM driver
     data = [int(d) for d in struct.unpack("f" * (rows * cols), idataset[24:])]
-    gd_type = GDT_Int16
+    gd_type = gd_of[oext]
     np_type = np.int16
 else:
     data = struct.unpack("f" * (rows * cols), idataset[24:])    # elevations
-    gd_type = GDT_Float32
+    gd_type = gd_of[oext]
     np_type = np.float32
-# create output (temperary geotiff in case of dem)
+# create output (temperary geotiff in case of dem/asc)
 driver = osgeo.gdal.GetDriverByName(gd_driver[tmpext])
 if driver is None:
     print("Cannot get GDAL driver")
@@ -94,7 +107,7 @@ if odataset is None:
     print("Cannot create output GDAL dataset")
     sys.exit(4)
 odataset.SetGeoTransform((xul, psize, 0, yul, 0, -psize))
-if oext == ".dem":
+if oext in cc:
     # set spatial reference system to (false) UTM
     srs = osgeo.osr.SpatialReference()
     srs.SetUTM(11, 1)
@@ -104,14 +117,14 @@ odataset.GetRasterBand(1).WriteArray(np.array(data, \
     dtype=np_type).reshape((rows, cols)))
 odataset.FlushCache()
 odataset = None
-if oext == ".dem":
-    # make a copy of tif to dem
+if oext in cc:
+    # make a copy of tif to dem/asc
     src_ds = osgeo.gdal.Open(tmpfilename)
-    driver = osgeo.gdal.GetDriverByName("USGSDEM")
+    driver = osgeo.gdal.GetDriverByName(gd_driver[oext])
     if driver is None:
-        print("Cannot get USGSDEM driver")
+        print("Cannot get %s driver" % gd_driver[oext])
         sys.exit(4)
-    dst_ds = driver.CreateCopy(ofilename, src_ds, 0 )
+    dst_ds = driver.CreateCopy(args.ofilename, src_ds, 0)
     src_ds = None
     dst_ds = None
     # remove temperary geotif file
