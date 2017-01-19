@@ -5,9 +5,9 @@
     GPL 2
 
     Usage:
-        python dem2grid.py [-o DZ] input.dem [output.grid]
+        python dem2grid.py [-o DZ] [-s SZ] input.dem [output.grid]
         or
-        dem2grid.py [-o DZ] input.dem [output.grid]
+        dem2grid.py [-o DZ] [-s SZ] input.dem [output.grid]
 
     Input file is a GDAL suported DEM file, you can create it from SARndbox
     (Save Bathimetry) or several open source software can be used e.g. QGIS.
@@ -42,6 +42,7 @@ parser.add_argument("ifilename", type=str, help="input DEM file")
 parser.add_argument("ofilename", nargs="?", type=str, \
     help="output grid file, optional", default="")
 parser.add_argument("-o", "--offset", type=float, help="z offset", default=0.0)
+parser.add_argument("-s", "--scale", type=float, help="z scale", default=1.0)
 args = parser.parse_args()
 
 # generate output file name if not given on the command line
@@ -59,15 +60,19 @@ rows = idataset.RasterYSize
 tr = idataset.GetGeoTransform()
 xul = tr[0]
 yul = tr[3]
-xlr = xul + (cols - 1) * tr[1]
-ylr = yul + (rows - 1) * tr[5]
+xlr = xul + cols * tr[1]
+ylr = yul + rows * tr[5]
+print "ul %.2f %.2f" % (tr[0], tr[3])
+print "lr %.2f %.2f" % (xlr, ylr)
+print "px %.2f %.2f" % (tr[1], tr[5])
+print "cr %d %d" % (cols, rows)
 # write data to binary output
 of = open(args.ofilename, "wb")
 of.write(struct.pack("2i", cols, rows))
 of.write(struct.pack("4f", xul, ylr, xlr, yul))
 band = idataset.GetRasterBand(1)
 d = band.ReadRaster(0, 0, cols, rows, cols, rows, band.DataType)
-data = [x+args.offset \
+data = [(x + args.offset) * args.scale \
     for x in struct.unpack(gd_type[band.DataType] * (rows * cols), d)]
 #print(band.DataType)
 #print(len(data))
