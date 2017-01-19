@@ -7,7 +7,7 @@ compatible .grid file. The DEM size should be not larger then 640x480.
 Optional offset parameter can be used to vertically shift dem to fit SARndbox.
 
 ```
-usage: dem2grid.py [-h] [-o OFFSET] ifilename [ofilename]
+usage: dem2grid.py [-h] [-o OFFSET] [-s SCALE] ifilename [ofilename]
 
 positional arguments:
   ifilename                   input DEM file
@@ -15,7 +15,8 @@ positional arguments:
 
 optional arguments:
   -h, --help                  show this help message and exit
-  -o OFFSET, --offset OFFSET  z offset
+  -o OFFSET, --offset OFFSET  z offset (default 0.0)
+  -s OFFSET, --scale SCALE    z scale (default 1.0)
 ```
 
 ##grid2dem.py
