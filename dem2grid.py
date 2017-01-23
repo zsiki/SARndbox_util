@@ -62,10 +62,10 @@ xul = tr[0]
 yul = tr[3]
 xlr = xul + cols * tr[1]
 ylr = yul + rows * tr[5]
-print "ul %.2f %.2f" % (tr[0], tr[3])
-print "lr %.2f %.2f" % (xlr, ylr)
-print "px %.2f %.2f" % (tr[1], tr[5])
-print "cr %d %d" % (cols, rows)
+#print "ul %.2f %.2f" % (tr[0], tr[3])
+#print "lr %.2f %.2f" % (xlr, ylr)
+#print "px %.2f %.2f" % (tr[1], tr[5])
+#print "cr %d %d" % (cols, rows)
 # write data to binary output
 of = open(args.ofilename, "wb")
 of.write(struct.pack("2i", cols, rows))
