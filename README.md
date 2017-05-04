@@ -1,7 +1,7 @@
 # SARndbox_util
 Simple utilities to Augmented Reality Sandbox
 
-##dem2grid.py
+1. dem2grid.py
 Convert .dem/.tif/.arc digital elevation modell file to SARndbox
 compatible .grid file. The DEM size should be not larger then 640x480.
 Optional offset parameter can be used to vertically shift dem to fit SARndbox.
@@ -19,7 +19,7 @@ optional arguments:
   -s OFFSET, --scale SCALE    z scale (default 1.0)
 ```
 
-##grid2dem.py
+2. grid2dem.py
 Convert SARndbox .grid file to GDAL compatible DEM format (.tif/.asc/.dem).
 
 ```
@@ -32,3 +32,19 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
 ```
+3. Sample usage
+
+Convert dem (sample.dem) to grid (sample.grid) (no z offset and scale)
+```
+python dem2grid sample.dem sample.grid
+```
+
+Convert dem (sample.dem) to grid (sample.grid) with z offset 10.
+
+```
+python dem2grid -o 10 sample.dem sample.grid
+```
+Convert grid (test.grid) to dem (test.dem)
+
+```
+python grid2dem test.grid test.dem
