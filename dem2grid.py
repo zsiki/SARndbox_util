@@ -38,13 +38,15 @@ gd_type = {GDT_Byte:    "b",
            GDT_Float64: "d"}
 # check command line parameters
 parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--info", action='store_true', \
+    help="info about input DEMfile")
 parser.add_argument("ifilename", type=str, help="input DEM file")
 parser.add_argument("ofilename", nargs="?", type=str, \
     help="output grid file, optional", default="")
 parser.add_argument("-o", "--offset", type=float, help="z offset", default=0.0)
 parser.add_argument("-s", "--scale", type=float, help="z scale", default=1.0)
 args = parser.parse_args()
-
+print args
 # generate output file name if not given on the command line
 if len(args.ofilename) == 0:
     args.ofilename = os.path.splitext(args.ifilename)[0] + ".grid"
@@ -56,6 +58,7 @@ if idataset is None:
 # get size of dem
 cols = idataset.RasterXSize
 rows = idataset.RasterYSize
+n = rows * cols
 # get and calculate coordinate limits
 tr = idataset.GetGeoTransform()
 xul = tr[0]
@@ -66,17 +69,32 @@ ylr = yul + rows * tr[5]
 #print "lr %.2f %.2f" % (xlr, ylr)
 #print "px %.2f %.2f" % (tr[1], tr[5])
 #print "cr %d %d" % (cols, rows)
+band = idataset.GetRasterBand(1)
+d = band.ReadRaster(0, 0, cols, rows, cols, rows, band.DataType)
+noData = band.GetNoDataValue()
+# copy data to list
+data = [ x for x in struct.unpack(gd_type[band.DataType] * n, d)]
+# calculate avarege of not nodata elements
+w = [i for i in data if i != noData]
+avg = sum(w) / len(w)
+if args.info:
+    print "rows: {:d}".format(rows)
+    print "cols: {:d}".format(cols)
+    print "type: {:d}".format(band.DataType)
+    print "nodata: {:.2f} {:d}".format(noData, n-len(w))
+    print "extent: {:.2f}, {:.2f}, {:.2f}, {:.2f}".format(xul, yul, xlr, ylr)
+    print "min z: {:.2f}".format(min(w))
+    print "max z: {:.2f}".format(max(w))
+    print "avg z: {:.2f}".format(avg)
+    exit(0)
+# transform z values
+res = [0] * n
+for i in range(n):
+    x = 0 if data[i] == noData else data[i] - avg
+    res[i] = x * args.scale + args.offset
 # write data to binary output
 of = open(args.ofilename, "wb")
 of.write(struct.pack("2i", cols, rows))
 of.write(struct.pack("4f", xul, ylr, xlr, yul))
-band = idataset.GetRasterBand(1)
-d = band.ReadRaster(0, 0, cols, rows, cols, rows, band.DataType)
-data = [(x + args.offset) * args.scale \
-    for x in struct.unpack(gd_type[band.DataType] * (rows * cols), d)]
-#print(band.DataType)
-#print(len(data))
-#print(type(data))
-#print(data)
-of.write(struct.pack("f" * (cols * rows), *data))
+of.write(struct.pack("f" * n, *res))
 of.close()
