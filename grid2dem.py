@@ -49,10 +49,10 @@ for i in gd_driver:
     form = gd_driver[i]
     driver = osgeo.gdal.GetDriverByName(form)
     metadata = driver.GetMetadata()
-    if metadata.has_key(osgeo.gdal.DCAP_CREATE) and \
+    if osgeo.gdal.DCAP_CREATE in metadata and \
         metadata[osgeo.gdal.DCAP_CREATE] == 'YES':
         continue
-    if metadata.has_key(osgeo.gdal.DCAP_CREATECOPY) and \
+    if osgeo.gdal.DCAP_CREATECOPY in metadata and \
         metadata[osgeo.gdal.DCAP_CREATECOPY] == 'YES':
         cc.append(i)
 # check command line parameters

@@ -1,6 +1,10 @@
 # SARndbox_util
 Simple utilities to Augmented Reality Sandbox
 
+Prerequisites
+* Python version 2 or 3
+* osgeo.gdal and gdalconst (see https://pypi.org/project/GDAL/)
+
 1. dem2grid.py
 Convert .dem/.tif/.arc digital elevation modell file to SARndbox
 compatible .grid file. The DEM size should be not larger then 640x480.
